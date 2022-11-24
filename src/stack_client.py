@@ -1,5 +1,6 @@
 import requests
 import math
+import json
 
 class stack_client():
     def __init__(self, key='') -> None:
@@ -63,44 +64,51 @@ class stack_client():
     def load_dataset(self, n_start = -1, n_end=-1):
         datapoints = self.list_datapoints(n_start=n_start, n_end=n_end)
         dataset = []
-        for key in datapoints['keys']:
-            res = requests.get(self.address+f"get_datapoint?{key}")
-            dataset.append(res.json)
+        # for key in datapoints['keys']:
+        #     res = requests.get(self.address+f"get_datapoint?{key}")
+        #     dataset.append(res.json)
         return dataset
 
     def list_models(self):
         response = requests.get(self.address+f"get_models")
         return response.json
     
-    def save_model(self, model, label):
-        response = requests.post(self.address+'add_model', files={'file': model}, json={'project': self.project, 'label': label})
+    def save_model(self, model, label: str):
+        response = requests.post(self.address+'add_model', files={'file': ('model', open(model ,'rb')), 'json': (None, json.dumps({'project': self.project, 'label': label}), 'application/json')})
         return response.json['success']
 
-    def load_model(self, label):
+    def load_model(self, label: str):
         response = requests.post(self.address+'get_model', json={'project': self.project, 'label': label})
         return response.file
 
-    def tag_datapoint(self, key, tag):
-        response = requests.post(self.address+f'add_tag?tag={tag}&file={key}')
+    def tag_datapoint(self, key: str, tag: str):
+        response = requests.post(self.address+f"add_tag?tag={tag}&file={key.replace(self.uri,'')}")
         return response.json['succes']
 
 if __name__ == '__main__':
-    client = stack_client(key='')
-    client.init(uri='coco129', project='test1')
+    stack = stack_client(key='')
+    stack.init(uri='coco129', project='test1')
+    stack.config = {"learning_rate": 0.001, "epochs": 100, "batch_size": 128}
 
-    dp = client.list_datapoints()
-    dset = client.load_dataset()
 
-    models = client.list_models()
+    dp = stack.list_datapoints()
+    # dset = client.load_dataset()
+
+    models = stack.list_models()
     
-    f = open("model.pt", "w")
-    f.write("this is the model")
+    f = open("model.pt", "a")
+    f.write("")
     f.close()
-    model = open("model.pt", "rb")
     
-    client.save_model(model = model, label='model1')
-    model = client.load_model(label='model1')
+    stack.save_model(model = "model.pt", label='v1')
+    model = stack.load_model(label='model1')
 
+    stack.tag_datapoint(dp['keys'][0], 'tag added programatically')
 
-    client.tag_datapoint(dp['keys'][0], 'tag addded programatically')
-    
+    for i in range(10):
+        stack.log({'loss': 1/i, 'epoch': i, 'step': 0})
+        dp_losses = []
+        for key in dp['keys']:
+            dp_losses.append({'key': key, 'loss': 1/i})
+        stack.log({'dp_loss': dp_losses, 'epoch': i, 'step': 0})
+    stack.log({'end_experiment': True})
