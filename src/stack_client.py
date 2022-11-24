@@ -83,7 +83,11 @@ class stack_client():
 
     def tag_datapoint(self, key: str, tag: str):
         response = requests.post(self.address+f"add_tag?tag={tag}&file={key.replace(self.uri,'')}")
-        return response.json['succes']
+        return response.json['success']
+
+    def logout(self):
+        response = requests.post(self.address+f"logout_experiment?project={self.project}")
+        return response.json['success']
 
 if __name__ == '__main__':
     stack = stack_client(key='')
@@ -111,4 +115,4 @@ if __name__ == '__main__':
         for key in dp['keys']:
             dp_losses.append({'key': key, 'loss': 1/i})
         stack.log({'dp_loss': dp_losses, 'epoch': i, 'step': 0})
-    stack.log({'end_experiment': True})
+    stack.logout()
