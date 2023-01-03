@@ -75,6 +75,7 @@ class stack_client():
     def add_file(self, filename):
         file = {'file': open(filename ,'rb')}
         url = self.address+'add_multifiles'
+
         response = requests.post(url=url, files=file)
         return dict(response.json())['success']
 
