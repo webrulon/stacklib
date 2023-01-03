@@ -72,6 +72,12 @@ class stack_client():
         response = requests.get(self.address+"get_models")
         return dict(response.json())
     
+    def add_file(self, filename):
+        file = {'file': open(filename ,'rb')}
+        url = self.address+'add_multifiles'
+        response = requests.post(url=url, files=file)
+        return dict(response.json())['success']
+
     def save_model(self, model, label):
         data = {'data': '{"label": "'+label+'"}'}
         file = {'file': open(model ,'rb')}
@@ -87,6 +93,51 @@ class stack_client():
     def comment_datapoint(self, key, comment):
         response = requests.get(self.address+"add_tag?file="+key+'&tag='+comment)
         return dict(response.json())['success']
+
+    def uncomment_datapoint(self, key):
+        response = requests.get(self.address+"remove_all_tags?file="+key)
+        return dict(response.json())['success']
+
+    def set_filter(self, filter_dict):
+        response = requests.get(url=self.address+"set_filter", data=filter_dict)
+        return dict(response.json())['success']
+
+    def reset_filter(self):
+        response = requests.get(url=self.address+"reset_filters")
+        return dict(response.json())['success']
+
+    def add_slice(self, name, filter_dict = None):
+        if filter_dict:
+            _ = requests.get(url=self.address+"set_filter", data=filter_dict)
+        response = requests.get(url=self.address+"add_slice?slice_name="+name)
+        if filter_dict:
+            _ = requests.get(url=self.address+"reset_filters")
+        return dict(response.json())['success']
+
+    def branch(self, uri, title = None, type='copy', filter_dict = None):
+        if title == None:
+            title = uri
+
+        if filter_dict:
+            _ = requests.get(url=self.address+"set_filter", data=filter_dict)
+        data = {'branch_name': uri, 'branch_title': title, 'branch_type': type}
+        response = requests.get(url=self.address+"set_branch",data=data)
+        if filter_dict:
+            _ = requests.get(url=self.address+"reset_filters")
+        return dict(response.json())['success']
+
+    def merge(self, branch = None, main = None):
+        if branch:
+            if main:
+                data = {'child': branch, 'parent': main}
+                response = requests.get(url=self.address+"merge",data=data)        
+                return dict(response.json())['success']
+            else:
+                response = requests.get(url=self.address+"merge_child_to_master?uri="+branch)        
+                return dict(response.json())['success']
+        else:
+            response = requests.get(url=self.address+"merge_current_to_master")
+            return dict(response.json())['success']
 
     def logout(self):
         response = requests.get(self.address+"logout_experiment")
@@ -104,7 +155,7 @@ if __name__ == '__main__':
     stack.config = {"learning_rate": 0.001, "epochs": 100, "batch_size": 128}
     
     for i in range(1,100):
-        # Runs model traimimg
+        # Runs model training
         dp_predictions = []
         for key in datapoints['keys']:
             dp_predictions.append({'key': key, 'prediction': predictions[key], 'scores': scores[key]})
