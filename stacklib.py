@@ -115,15 +115,15 @@ class stack_client():
             _ = requests.get(url=self.address+"reset_filters")
         return dict(response.json())['success']
 
-    def branch(self, uri, title = None, type='copy', filter_dict = None):
+    def branch(self, uri, title = None, type='copy', filter = None):
         if title == None:
             title = uri
 
-        if filter_dict:
-            _ = requests.get(url=self.address+"set_filter", data=filter_dict)
+        if filter:
+            _ = requests.get(url=self.address+"set_filter", data=filter)
         data = {'branch_name': uri, 'branch_title': title, 'branch_type': type}
         response = requests.get(url=self.address+"set_branch",data=data)
-        if filter_dict:
+        if filter:
             _ = requests.get(url=self.address+"reset_filters")
         return dict(response.json())['success']
 
@@ -148,15 +148,30 @@ class stack_client():
 if __name__ == '__main__':
 
     stack = stack_client(key='NA')
-    stack.init(uri='s3://mydatasets/coco129',  project='training run')
-
-    dset = stack.load_dataset(version='-1',slice=None,branch=None)
-
-    datapoints = stack.list_datapoints()
-    stack.config = {"learning_rate": 0.001, "epochs": 100, "batch_size": 128}
     
+    dataset_uri = 'dataset_uri'
+    project = 'p1'
+    stack.init(uri=dataset_uri,  project=project)
+
+    # applies a filter and get the list of datapoints
+    datapoints = stack.list_datapoints()
+    stack.comment_datapoint(datapoints['keys'][0], 'comment example')
+
+    # applies a filter and get the list of datapoints
+    stack.set_filter([{'comment': 'comment example'}])
+    filtered_datapoints = stack.list_datapoints()
+
+    # creates a branch with the filter
+    stack.branch(uri = 'branch_example', name = 'branch 1', filter = [{'comment': 'comment example'}])
+    
+    # merges the branch to the main
+    stack.merge(branch = 'branch_example', main = dataset_uri)
+    
+    
+    # runs model training
+    stack.config = {"learning_rate": 0.001, "epochs": 100, "batch_size": 128}
+
     for i in range(1,100):
-        # Runs model training
         dp_predictions = []
         for key in datapoints['keys']:
             dp_predictions.append({'key': key, 'prediction': predictions[key], 'scores': scores[key]})
