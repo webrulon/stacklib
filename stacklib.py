@@ -158,7 +158,7 @@ if __name__ == '__main__':
     stack.comment_datapoint(datapoints['keys'][0], 'comment example')
 
     # applies a filter and get the list of datapoints
-    stack.set_filter([{'comment': 'comment example'}])
+    stack.set_filter({'0': {'comment': 'comment example'}})
     filtered_datapoints = stack.list_datapoints()
 
     # creates a branch with the filter
@@ -166,7 +166,6 @@ if __name__ == '__main__':
     
     # merges the branch to the main
     stack.merge(branch = 'branch_example', main = dataset_uri)
-    
     
     # runs model training
     stack.config = {"learning_rate": 0.001, "epochs": 100, "batch_size": 128}
