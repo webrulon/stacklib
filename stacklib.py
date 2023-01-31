@@ -1,5 +1,6 @@
 import requests
 import math
+import random
 
 class stack_client():
     def __init__(self, key=''):
@@ -20,6 +21,10 @@ class stack_client():
     
     def log(self, data):
         response = requests.post(self.address+'add_log', json={'log': data, 'config': self.config, 'project': self.project, 'uri': self.uri})
+        return response.json()
+
+    def store_predictions(self, data):
+        response = requests.post(self.address+'add_predictions', json={'prediction': data, 'config': self.config, 'project': self.project, 'uri': self.uri})
         return response.json()
 
     def list_datapoints(self, n_start = -1, n_end=-1):
@@ -95,6 +100,19 @@ class stack_client():
         response = requests.get(self.address+"add_tag?file="+key+'&tag='+comment)
         return dict(response.json())['success']
 
+    def add_datapoint(self, key):
+        response = requests.get(self.address+"add_datapoint?key="+key)
+        return dict(response.json())['success']
+
+    def get_labels(self, key):
+        response = requests.get(self.address+"get_labels?key="+key)
+        return dict(response.json())
+
+    def set_labels(self, key, label):
+        data = {'keyId': key, 'Label': label}
+        response = requests.get(self.address+"set_labels",json=data)
+        return dict(response.json())
+    
     def uncomment_datapoint(self, key):
         response = requests.get(self.address+"remove_all_tags?file="+key)
         return dict(response.json())['success']
@@ -146,37 +164,47 @@ class stack_client():
 
 
 if __name__ == '__main__':
+    stack = stack_client(key='YOUR_API_KEY')
 
-    stack = stack_client(key='NA')
-    
-    dataset_uri = 'dataset_uri'
-    project = 'p1'
-    stack.init(uri=dataset_uri,  project=project)
+    # we connect to the coco128 dataset in YOLO format 
+    # (https://www.kaggle.com/ultralytics/coco128) located in the home path
+    stack.init(uri='mini_squad',  project='Davinci3 finetune')
 
-    # applies a filter and get the list of datapoints
+    # gets the list of datapoints
     datapoints = stack.list_datapoints()
-    stack.comment_datapoint(datapoints['keys'][0], 'comment example')
 
-    # applies a filter and get the list of datapoints
-    stack.set_filter({'0': {'comment': 'comment example'}})
-    filtered_datapoints = stack.list_datapoints()
+    # sets configuraation for training run
+    epochs = 100
+    lr = 0.001
+    batch_size = 129
 
-    # creates a branch with the filter
-    stack.branch(uri = 'branch_example', name = 'branch 1', filter = [{'comment': 'comment example'}])
-    
-    # merges the branch to the main
-    stack.merge(branch = 'branch_example', main = dataset_uri)
-    
-    # runs model training
-    stack.config = {"learning_rate": 0.001, "epochs": 100, "batch_size": 128}
+    stack.config = {"learning_rate": lr, "epochs": epochs, "batch_size": batch_size}
 
-    for i in range(1,100):
-        dp_predictions = []
-        for key in datapoints['keys']:
-            dp_predictions.append({'key': key, 'prediction': predictions[key], 'scores': scores[key]})
-        stack.log({'loss': 1/i, 'prediction': dp_predictions, 'epoch': i})
-    
-    stack.save_model(model = "model.pt", label='v1')
-    model = stack.load_model(label='v1')
+    # runs model training and logs loss
+    for i in range(1,epochs):
+    # <-------- runs model training  -------->
+        loss_at_epoch = 1/i + random.random()/4 # dummy data
+        stack.log({'loss': loss_at_epoch, 'epoch': i}) # logs experiment training loss at each epoch
+
+        # stores the model predictions at the end of the run
+        # predictions_array = []
+        # for datapoint in datapoints['keys']:
+            
+        #     # <-------- computs model predictions for each datapoint  -------->
+            
+        #     prediction = [['1', 0, 0, 0, 0], ['1', 0, 0, 0, 0]] # dummy data in YOLO format ['class', x, y, w, h]
+        #     score = 0.99 # dummy data
+    #     predictions_array.append({'key': datapoint, 'prediction': prediction, 'scores': score})
+    pred = {}
+    for i in range(10):
+        pred[datapoints['keys'][i]] = [['0', 1/2, 1/2, 1/2, 1/2]]
+    stack.store_predictions([pred]) # logs experiment results
+
+
+    # saves the model file and versions it
+    stack.save_model(model = "model.pt.txt", label='experiment_1')
+
+    # loads the model file from the run
+    model = stack.load_model(label='experiment_1')
 
     stack.logout()
