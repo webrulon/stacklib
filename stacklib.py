@@ -1,6 +1,8 @@
 import requests
 import math
 import random
+import json
+import requests
 
 class stack_client():
     def __init__(self, key=''):
@@ -104,6 +106,10 @@ class stack_client():
         response = requests.get(self.address+"add_datapoint?key="+key)
         return dict(response.json())['success']
 
+    def get_datapoint(self, key):
+        response = requests.get(self.address+"pull_file_api?file="+key)
+        return response.content
+
     def get_labels(self, key):
         response = requests.get(self.address+"get_labels?key="+key)
         return dict(response.json())
@@ -168,7 +174,7 @@ if __name__ == '__main__':
 
     # we connect to the coco128 dataset in YOLO format 
     # (https://www.kaggle.com/ultralytics/coco128) located in the home path
-    stack.init(uri='mini_squad',  project='Davinci3 finetune')
+    stack.init(uri='seq2seqcsv',  project='Davincii FineTune')
 
     # gets the list of datapoints
     datapoints = stack.list_datapoints()
@@ -183,7 +189,7 @@ if __name__ == '__main__':
     # runs model training and logs loss
     for i in range(1,epochs):
     # <-------- runs model training  -------->
-        loss_at_epoch = 1/i + random.random()/4 # dummy data
+        loss_at_epoch = 1/i + random.random() # dummy data
         stack.log({'loss': loss_at_epoch, 'epoch': i}) # logs experiment training loss at each epoch
 
         # stores the model predictions at the end of the run
@@ -195,11 +201,40 @@ if __name__ == '__main__':
         #     prediction = [['1', 0, 0, 0, 0], ['1', 0, 0, 0, 0]] # dummy data in YOLO format ['class', x, y, w, h]
         #     score = 0.99 # dummy data
     #     predictions_array.append({'key': datapoint, 'prediction': prediction, 'scores': score})
-    pred = {}
-    for i in range(10):
-        pred[datapoints['keys'][i]] = [['0', 1/2, 1/2, 1/2, 1/2]]
-    stack.store_predictions([pred]) # logs experiment results
 
+    API_URL = "https://api-inference.huggingface.co/models/facebook/detr-resnet-101"
+    headers = {"Authorization": "Bearer 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"}
+
+    def query(data):
+        response = requests.request("POST", API_URL, headers=headers, data=data)
+        return json.loads(response.content.decode("utf-8"))
+    import PIL
+    from PIL import Image
+    import io    
+    pred = {}
+    for i in range(5):
+        image = stack.get_datapoint(datapoints['keys'][i])
+        # loading the image
+        img = Image.open(io.BytesIO(image))
+
+        # fetching the dimensions
+        wid, hgt = img.size
+        res = query(image)
+        label = []
+        for r in res:
+            print(r)
+            x = (r['box']['xmin']+r['box']['xmax'])/(2 * wid)
+            y = (r['box']['ymin']+r['box']['ymax'])/(2 * hgt)
+            w = (r['box']['xmax']-r['box']['xmin'])/(wid)
+            h = (r['box']['ymax']-r['box']['xmin'])/(hgt)
+            if r['label'] == 'person':
+                cl = '15'
+            else:
+                cl = '0'
+            label.append([cl, x, y, w, h])
+        pred[datapoints['keys'][i]] = label
+    stack.store_predictions([pred]) # logs experiment results
+        
 
     # saves the model file and versions it
     stack.save_model(model = "model.pt.txt", label='experiment_1')
